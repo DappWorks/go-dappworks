@@ -13,6 +13,7 @@ service RpcService {
   rpc RpcGetBalance (GetBalanceRequest) returns (GetBalanceResponse) {}
   rpc RpcGetBlockchainInfo (GetBlockchainInfoRequest) returns (GetBlockchainInfoResponse) {}
   rpc RpcGetUTXO(stream GetUTXORequest) returns (stream GetUTXOResponse) {}
+  rpc RpcGetUTXOsAccordingToAmount(stream GetUTXORequest) returns (stream GetUTXOResponse) {}
   rpc RpcGetBlocks(GetBlocksRequest) returns (GetBlocksResponse) {}
   rpc RpcGetBlockByHash(GetBlockByHashRequest) returns (GetBlockByHashResponse) {}
   rpc RpcGetBlockByHeight(GetBlockByHeightRequest) returns (GetBlockByHeightResponse) {}
@@ -97,6 +98,7 @@ message GetVersionRequest {
 
 message GetUTXORequest {
   string address = 1;  //account address
+  int64  amount = 2;
 }
 
 message GetBlocksRequest {
