@@ -28,6 +28,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/dappley/go-dappley/tool/sendTxFromMiner"
 	"io/ioutil"
 	"log"
 	"os"
@@ -110,6 +111,7 @@ const (
 	flagValue            = "value"
 	flagBlockHeight      = "height"
 	flagGenerateConfig   = "generateConfig"
+	flagPrivateKey       = "privateKey"
 )
 
 type valueType int
@@ -201,7 +203,8 @@ var cmdFlagsMap = map[string][]flagPars{
 			valueTypeUint64,
 			"height. Eg. 1",
 		},
-	}, cliaddProducer: {
+	},
+	cliaddProducer: {
 		flagPars{
 			flagProducerAddr,
 			"",
@@ -222,17 +225,18 @@ var cmdFlagsMap = map[string][]flagPars{
 			"height. Eg. 1",
 		},
 	},
-	clisendFromMiner: {
+		clisendFromMiner: {
 		flagPars{
-			flagAddressBalance,
+			flagToAddress,
 			"",
 			valueTypeString,
-			"Reciever's address. Eg. 1MeSBgufmzwpiJNLemUe1emxAussBnz7a7"},
+			"Receiver's account address. Eg. 1MeSBgufmzwpiJNLemUe1emxAussBnz7a7",
+		},
 		flagPars{
-			flagAmountBalance,
+			flagAmount,
 			0,
 			valueTypeInt,
-			"The amount to be sent to the receiver.",
+			"The amount to send from the sender to the receiver.",
 		},
 	},
 	cliSend: {
@@ -387,10 +391,10 @@ var cmdHandlers = map[string]commandHandlersWithType{
 	cliGetBalance:        {rpcService, getBalanceCommandHandler},
 	cliGetPeerInfo:       {adminRpcService, getPeerInfoCommandHandler},
 	cliSend:              {rpcService, sendCommandHandler},
+	clisendFromMiner:     {rpcService, sendTxFromMinerCommandHandler},
 	cliAddPeer:           {adminRpcService, addPeerCommandHandler},
 	clicreateAccount:     {adminRpcService, createAccountCommandHandler},
 	cliListAddresses:     {adminRpcService, listAddressesCommandHandler},
-	clisendFromMiner:     {adminRpcService, sendFromMinerCommandHandler},
 	clichangeProducer:    {adminRpcService, clichangeProducerCommandHandler},
 	cliaddProducer:       {adminRpcService, cliaddProducerCommandHandler},
 	clideleteProducer:    {adminRpcService, clideleteProducerCommandHandler},
@@ -401,8 +405,7 @@ var cmdHandlers = map[string]commandHandlersWithType{
 	cliGetMetricsInfo:    {metricsRpcService, getMetricsInfoCommandHandler},
 	cliGetBlockByHeight:  {rpcService, getBlockByHeightCommandHandler},
 	cliGenerateSeed:      {adminRpcService, generateSeedCommandHandler},
-
-	cliConfigGenerator: {adminRpcService, configGeneratorCommandHandler},
+	cliConfigGenerator:   {adminRpcService, configGeneratorCommandHandler},
 }
 
 type commandHandlersWithType struct {
@@ -1012,7 +1015,6 @@ func createAccount(ctx context.Context, c interface{}, flags cmdFlags) *account.
 	}
 
 	acc = account
-
 	return acc
 }
 
@@ -1248,7 +1250,17 @@ func clichangeProducerCommandHandler(ctx context.Context, c interface{}, flags c
 		}
 		return
 	}
-	fmt.Println("Producer will be changed.")
+	fmt.Println("Producer is added.")
+}
+
+func sendTxFromMinerCommandHandler(ctx context.Context, c interface{}, flags cmdFlags) {
+	toAddress := *(flags[flagToAddress].(*string))
+	if toAddress == ""{
+		fmt.Println("Error: 'toAddress' is not valid!")
+		return
+	}
+	amount := *(flags[flagAmount].(*int))
+	sendTxFromMiner.SendTxFromMiner(ctx,c,"",toAddress,amount)
 }
 
 type utxoSlice []*utxo.UTXO
@@ -1379,11 +1391,12 @@ func GetUTXOsfromAmount(inputUTXOs []*utxo.UTXO, amount *common.Amount, tip *com
 	}
 	var retUtxos []*utxo.UTXO
 	sum := common.NewAmount(0)
-
+    fmt.Println("len inputUTXOs:",len(inputUTXOs))
 	vinRulesCheck := false
 	for i := 0; i < len(inputUTXOs); i++ {
 		retUtxos = append(retUtxos, inputUTXOs[i])
 		sum = sum.Add(inputUTXOs[i].Value)
+		fmt.Println("value:",inputUTXOs[i].Value)
 		if vinRules(sum, amount, i, len(inputUTXOs)) {
 			vinRulesCheck = true
 			break
@@ -1421,7 +1434,6 @@ func helpCommandHandler(ctx context.Context, account interface{}, flags cmdFlags
 				continue
 			}
 			if par.name == flagStartBlockHashes {
-
 				fmt.Printf(" 8334b4c19091ae7582506eec5b84bfeb4a5e101042e40b403490c4ceb33897ba, 8334b4c19091ae7582506eec5b84bfeb4a5e101042e40b403490c4ceb33897bb ")
 				continue
 			}

@@ -346,3 +346,66 @@ func GetUtxoStream(streamClient rpcpb.RpcServiceClient, getUTXORequest *rpcpb.Ge
 	}
 	return &response, nil
 }
+
+//import a account with passphrase
+func ImportAccountWithPassphrase (account *account.Account,password string, optionalAccountFilePath ...string) error {
+	am, err := GetAccountManager(getAccountFilePath(optionalAccountFilePath))
+	if err != nil {
+		logger.Error(err)
+		return err
+	}
+
+	if len(am.Accounts) > 0 && am.PassPhrase != nil {
+		err = bcrypt.CompareHashAndPassword(am.PassPhrase, []byte(password))
+		if err != nil {
+			return err
+		}
+		am.AddAccount(account)
+		am.SaveAccountToFile()
+		return nil
+	}
+	passBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	am.PassPhrase = passBytes
+	logger.Info("Account password is set!")
+	am.AddAccount(account)
+	am.SaveAccountToFile()
+	return nil
+}
+
+func GetUtxosAccordingToAmountStream(streamClient rpcpb.RpcServiceClient, getUTXORequest *rpcpb.GetUTXORequest) (*rpcpb.GetUTXOResponse, error) {
+	stream, err := streamClient.RpcGetUTXOsAccordingToAmount(context.Background())
+	if err != nil {
+		logger.Error("get conversations stream err:", err)
+	}
+	response := rpcpb.GetUTXOResponse{}
+	for {
+		err := stream.Send(getUTXORequest)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return &response, err
+		}
+		res, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return &response, err
+		}
+		for i := 0; i < len(res.Utxos); i++ {
+			response.Utxos = append(response.Utxos, res.Utxos[i])
+		}
+		for i := 0; i < len(res.BlockHeaders); i++ {
+			response.BlockHeaders = append(response.BlockHeaders, res.BlockHeaders[i])
+		}
+	}
+	err = stream.CloseSend()
+	if err != nil {
+		return &response, err
+	}
+	return &response, nil
+}
