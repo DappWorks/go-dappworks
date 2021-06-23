@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"github.com/dappley/go-dappley/common"
 	"github.com/dappley/go-dappley/config"
 	configpb "github.com/dappley/go-dappley/config/pb"
@@ -22,12 +21,14 @@ import (
 )
 
 func SendTxFromMiner(ctx context.Context, c interface{},privateKey string,toAddress string,amount int)  {
-	var filePath string
-	flag.StringVar(&filePath, "file", "miner.conf", "Miner config file path")
-	minerConfig := &configpb.MinerConfig{}
-	config.LoadConfig(filePath, minerConfig)
-	fmt.Println("privateKey:",minerConfig.GetPrivateKey())
-	minerAcconut := importWallet(minerConfig.GetPrivateKey(),"1")
+	if privateKey == ""{
+		var filePath string
+		flag.StringVar(&filePath, "file", "miner.conf", "Miner config file path")
+		minerConfig := &configpb.MinerConfig{}
+		config.LoadConfig(filePath, minerConfig)
+		privateKey = minerConfig.GetPrivateKey()
+	}
+	minerAcconut := importWallet(privateKey,"1")
 	sendTxFromMiner(ctx,c,minerAcconut.GetAddress().String(),toAddress,amount)
 }
 
