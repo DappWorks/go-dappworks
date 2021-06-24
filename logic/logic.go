@@ -312,21 +312,27 @@ func sendTo(sendTxParam transaction.SendTxParam, bc *lblockchain.Blockchain) ([]
 	return tx.ID, contractAddr.String(), err
 }
 
-func GetUtxoStream(streamClient rpcpb.RpcServiceClient, getUTXORequest *rpcpb.GetUTXORequest) (*rpcpb.GetUTXOResponse, error) {
-	stream, err := streamClient.RpcGetUTXO(context.Background())
-	if err != nil {
-		logger.Error("get conversations stream err:", err)
-	}
+func GetUtxos(stream interface{},getUTXORequest *rpcpb.GetUTXORequest) (*rpcpb.GetUTXOResponse, error) {
+	var err error
 	response := rpcpb.GetUTXOResponse{}
 	for {
-		err := stream.Send(getUTXORequest)
+		if getUTXORequest.Amount > 0{
+			err = stream.(rpcpb.RpcService_RpcGetUTXOsAccordingToAmountClient).Send(getUTXORequest)
+		}else {
+			err = stream.(rpcpb.RpcService_RpcGetUTXOClient).Send(getUTXORequest)
+		}
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			return &response, err
 		}
-		res, err := stream.Recv()
+		var res *rpcpb.GetUTXOResponse
+		if getUTXORequest.Amount > 0{
+			res,err = stream.(rpcpb.RpcService_RpcGetUTXOsAccordingToAmountClient).Recv()
+		}else {
+			res,err = stream.(rpcpb.RpcService_RpcGetUTXOClient).Recv()
+		}
 		if err == io.EOF {
 			break
 		}
@@ -340,11 +346,32 @@ func GetUtxoStream(streamClient rpcpb.RpcServiceClient, getUTXORequest *rpcpb.Ge
 			response.BlockHeaders = append(response.BlockHeaders, res.BlockHeaders[i])
 		}
 	}
-	err = stream.CloseSend()
+	if getUTXORequest.Amount > 0{
+		err = stream.(rpcpb.RpcService_RpcGetUTXOsAccordingToAmountClient).CloseSend()
+	}else {
+		err = stream.(rpcpb.RpcService_RpcGetUTXOClient).CloseSend()
+	}
 	if err != nil {
 		return &response, err
 	}
 	return &response, nil
+}
+func GetUtxoStream(streamClient rpcpb.RpcServiceClient, getUTXORequest *rpcpb.GetUTXORequest) (*rpcpb.GetUTXOResponse, error) {
+	stream, err := streamClient.RpcGetUTXO(context.Background())
+	if err != nil {
+		logger.Error("get conversations stream err:", err)
+	}
+	response,err := GetUtxos(stream,getUTXORequest)
+	return response,err
+}
+
+func GetUtxosAccordingToAmountStream(streamClient rpcpb.RpcServiceClient, getUTXORequest *rpcpb.GetUTXORequest) (*rpcpb.GetUTXOResponse, error) {
+	stream, err := streamClient.RpcGetUTXOsAccordingToAmount(context.Background())
+	if err != nil {
+		logger.Error("get conversations stream err:", err)
+	}
+	response,err := GetUtxos(stream,getUTXORequest)
+	return response, nil
 }
 
 //import a account with passphrase
@@ -375,37 +402,3 @@ func ImportAccountWithPassphrase (account *account.Account,password string, opti
 	return nil
 }
 
-func GetUtxosAccordingToAmountStream(streamClient rpcpb.RpcServiceClient, getUTXORequest *rpcpb.GetUTXORequest) (*rpcpb.GetUTXOResponse, error) {
-	stream, err := streamClient.RpcGetUTXOsAccordingToAmount(context.Background())
-	if err != nil {
-		logger.Error("get conversations stream err:", err)
-	}
-	response := rpcpb.GetUTXOResponse{}
-	for {
-		err := stream.Send(getUTXORequest)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return &response, err
-		}
-		res, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return &response, err
-		}
-		for i := 0; i < len(res.Utxos); i++ {
-			response.Utxos = append(response.Utxos, res.Utxos[i])
-		}
-		for i := 0; i < len(res.BlockHeaders); i++ {
-			response.BlockHeaders = append(response.BlockHeaders, res.BlockHeaders[i])
-		}
-	}
-	err = stream.CloseSend()
-	if err != nil {
-		return &response, err
-	}
-	return &response, nil
-}
